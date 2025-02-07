@@ -1,0 +1,71 @@
+SELECT 
+        `el`.`IdElement` AS `IdElement`,
+        `el`.`IdTypeElement` AS `IdTypeElement`,
+        `el`.`Libelle` AS `Libelle`,
+        `el`.`IdClient` AS `IdClient`,
+        CONCAT(`cp`.`Designation`,
+                ' - ',
+                `cp`.`Nom`,
+                ' ',
+                `cp`.`Prenom`) AS `DesignCli`,
+        `el`.`DateBrouillon` AS `DateBrouillon`,
+        IFNULL(CAST(ROUND(SUM(((`ae`.`QuantiteCommandee` * `ae`.`PrixEspece`) * `ae`.`Marge`)),
+                            2)
+                    AS DECIMAL (15 , 2 )),
+                0) AS `HT`,
+        IFNULL((CAST(ROUND(SUM(((`ae`.`PrixEspece` * `ae`.`QuantiteCommandee`) * `ae`.`Marge`)),
+                            2)
+                    AS DECIMAL (15 , 2 )) + CAST(ROUND(SUM((CAST(ROUND((`ae`.`QuantiteCommandee` * CAST(ROUND((`ae`.`PrixEspece` * `ae`.`Marge`), 2)
+                                            AS DECIMAL (15 , 2 ))),
+                                        2)
+                                AS DECIMAL (15 , 2 )) * (`ae`.`Tva` / 100))),
+                            2)
+                    AS DECIMAL (15 , 2 ))),
+                0) AS `TTC`,
+        (SELECT 
+                IFNULL(CAST(ROUND(SUM(((`subae`.`QuantiteCommandee` * `subae`.`PrixEspece`) * `subae`.`Marge`)),
+                                        2)
+                                AS DECIMAL (15 , 2 )),
+                            0)
+            FROM
+                `articleselements` `subae`
+            WHERE
+                ((`subae`.`IdElement` = `ae`.`IdElement`)
+                    AND (`el`.`Etat` >= 0)
+                    AND (LENGTH(`el`.`IdTypeElement`) = 1)
+                    AND (`subae`.`Tva` = 5.5))) AS `TVA5`,
+        (SELECT 
+                IFNULL(CAST(ROUND(SUM(((`subae`.`QuantiteCommandee` * `subae`.`PrixEspece`) * `subae`.`Marge`)),
+                                        2)
+                                AS DECIMAL (15 , 2 )),
+                            0)
+            FROM
+                `articleselements` `subae`
+            WHERE
+                ((`subae`.`IdElement` = `ae`.`IdElement`)
+                    AND (`el`.`Etat` >= 0)
+                    AND (LENGTH(`el`.`IdTypeElement`) = 1)
+                    AND (`subae`.`Tva` = 10))) AS `TVA10`,
+        (SELECT 
+                IFNULL(CAST(ROUND(SUM(((`subae`.`QuantiteCommandee` * `subae`.`PrixEspece`) * `subae`.`Marge`)),
+                                        2)
+                                AS DECIMAL (15 , 2 )),
+                            0)
+            FROM
+                `articleselements` `subae`
+            WHERE
+                ((`subae`.`IdElement` = `ae`.`IdElement`)
+                    AND (`el`.`Etat` >= 0)
+                    AND (LENGTH(`el`.`IdTypeElement`) = 1)
+                    AND (`subae`.`Tva` = 20))) AS `TVA20`,
+        `el`.`Commentaire` AS `Commentaire`,
+        `el`.`Remarque` AS `Remarque`,
+        `el`.`LieuDePlantation` AS `LieuDePlantation`
+    FROM
+        ((`elements` `el`
+        LEFT JOIN `articleselements` `ae` ON ((`el`.`IdElement` = `ae`.`IdElement`)))
+        LEFT JOIN `clientsprincipaux` `cp` ON ((`el`.`IdClient` = `cp`.`IdClient`)))
+    WHERE
+        ((`el`.`Etat` >= 0)
+            AND (LENGTH(`el`.`IdTypeElement`) = 1))
+    GROUP BY `el`.`IdElement`
